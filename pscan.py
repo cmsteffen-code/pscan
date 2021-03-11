@@ -8,6 +8,23 @@ import sys
 import textwrap
 
 
+PORT_RANGE_FORMAT = textwrap.dedent(
+    """\
+    Ports can be specified as solo ports or hyphenated ranges, which
+    may be combined with commas. For example:
+
+    Port String      Corresponding Port List
+    -----------      -----------------------
+    23               [23]
+    23,24            [23, 24]
+    23-25            [23, 24, 25]
+    21-23,80,443-445 [21, 22, 23, 80, 443, 444, 445]
+
+    This script requires root privileges for low-level packet control.
+    """
+)
+
+
 def parse_ports(port_string):
     """Convert a port specification string into a list of ports."""
     ports = set()
@@ -31,21 +48,7 @@ def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="pscan: a fast Python port scanner",
-        epilog=textwrap.dedent(
-            """\
-            Ports can be specified as solo ports or hyphenated ranges, which
-            may be combined with commas. For example:
-
-            Port String      Corresponding Port List
-            -----------      -----------------------
-            23               [23]
-            23,24            [23, 24]
-            23-25            [23, 24, 25]
-            21-23,80,443-445 [21, 22, 23, 80, 443, 444, 445]
-
-            This script requires root privileges for low-level packet control.
-            """
-        ),
+        epilog=PORT_RANGE_FORMAT,
     )
     parser.add_argument(
         "hostname", type=str, help="The hostname or IP to scan."
