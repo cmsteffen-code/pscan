@@ -153,7 +153,7 @@ def scan(hostname, ports):
             f"tcp and src portrange {min(ports)}-{max(ports)} "
             f"and inbound and host {hostname}"
         ),
-        0.5,  # Timeout
+        1,  # Timeout
     )
     sniffer.start()
     syn_spray(hostname, ports)
