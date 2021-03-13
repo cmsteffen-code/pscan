@@ -5,14 +5,14 @@
 import argparse
 import datetime
 import os
-from queue import SimpleQueue
 import socket
 import sys
 import textwrap
 import threading
+import time
 from multiprocessing.dummy import Pool as ThreadPool
 
-from scapy.all import conf, sr1, ICMP, IP, TCP, sniff, send
+from scapy.all import conf, sr1, ICMP, IP, TCP, sniff, send, AsyncSniffer
 
 
 PORT_RANGE_FORMAT = textwrap.dedent(
@@ -62,40 +62,49 @@ def syn_spray(host, ports):
     pool.close()
     pool.join()
 
-def sniffer(ports, host, out_queue):
-    """Receive incoming packets and check for open ports."""
-    packets = sniff(
-        filter=(
-            f"tcp and src portrange {min(ports)}-{max(ports)} "
-            f"and inbound and host {host}"
-        ),
-        timeout=10, # TODO: Fix this.
-    )
-    live_ports = set()
-    for packet in packets:
-        if packet['TCP'].flags == "SA":
-            live_ports.add(packet.sport)
-    for port in sorted(live_ports):
-        out_queue.put(port)
+class Sniffer:
+    def __init__(self, filter, timeout):
+        """Initialize Sniffer."""
+        self.packets = list()
+        self.sniffer = AsyncSniffer(
+            filter=filter,
+            prn=lambda pkt:self.packets.append(pkt),
+        )
+        self.timeout = timeout
 
-def scan(hostname, port_range):
+    def start(self):
+        """Start sniffing."""
+        self.sniffer.start()
+
+    def stop(self):
+        """Stop sniffing."""
+        time.sleep(self.timeout)
+        self.sniffer.stop()
+
+    def open_ports(self):
+        """Return open ports."""
+        live_ports = set()
+        for packet in self.packets:
+            if packet["TCP"].flags == "SA":
+                live_ports.add(packet.sport)
+        return sorted(live_ports)
+
+def scan(hostname, ports):
     """Scan the specified ports on the target host."""
-    _ = (hostname, port_range)
-    good_ports = SimpleQueue()
-    threads = [
-        threading.Thread(
-            target=sniffer, args=(port_range, hostname, good_ports)
+    sniffer = Sniffer(
+        (   # Filter
+            f"tcp and src portrange {min(ports)}-{max(ports)} "
+            f"and inbound and host {hostname}"
         ),
-        threading.Thread(target=syn_spray, args=(hostname, port_range)),
-    ]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
-    open_ports = list()
-    while not good_ports.empty():
-        open_ports.append(good_ports.get())
-    return open_ports
+        0.5,  # Timeout
+    )
+    sniffer.start()
+    spray = threading.Thread(target=syn_spray, args=(hostname, ports))
+    spray.start()
+    spray.join()
+    print("[*] Port spray complete...")
+    sniffer.stop()
+    return sniffer.open_ports()
 
 
 def main():
