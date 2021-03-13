@@ -10,8 +10,9 @@ import socket
 import sys
 import textwrap
 import threading
+from multiprocessing.dummy import Pool as ThreadPool
 
-from scapy.all import conf, sr1, ICMP, IP, sniff
+from scapy.all import conf, sr1, ICMP, IP, TCP, sniff, send
 
 
 PORT_RANGE_FORMAT = textwrap.dedent(
@@ -48,9 +49,18 @@ def ping(hostname):
     end = datetime.datetime.now()
     return int((end - start).total_seconds() * 1000) if online else None
 
-def syn_spray(ports):
+def syn_spray(host, ports):
     """Send a spray of SYN packets to the specified ports."""
-    print("Syn spray!")
+
+    def send_syn(port):
+        """Send the SYN packet to the host."""
+        send(IP(dst=host) / TCP(dport=port, flags="S"))
+
+    conf.verb = 0
+    pool = ThreadPool(20)
+    pool.map(send_syn, ports)
+    pool.close()
+    pool.join()
 
 def sniffer(ports, host, out_queue):
     """Receive incoming packets and check for open ports."""
@@ -59,7 +69,7 @@ def sniffer(ports, host, out_queue):
             f"tcp and src portrange {min(ports)}-{max(ports)} "
             f"and inbound and host {host}"
         ),
-        timeout=10,
+        timeout=10, # TODO: Fix this.
     )
     live_ports = set()
     for packet in packets:
@@ -76,7 +86,7 @@ def scan(hostname, port_range):
         threading.Thread(
             target=sniffer, args=(port_range, hostname, good_ports)
         ),
-        threading.Thread(target=syn_spray, args=(port_range,)),
+        threading.Thread(target=syn_spray, args=(hostname, port_range)),
     ]
     for thread in threads:
         thread.start()
