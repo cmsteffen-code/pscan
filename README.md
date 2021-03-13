@@ -20,8 +20,8 @@ optional arguments:
   -P PORT_STRING, --ports PORT_STRING
                         The port range to scan.
 
-Ports can be specified as solo ports or hyphenated ranges, which
-may be combined with commas. For example:
+Ports can be specified as solo ports or hyphenated ranges, which may be
+combined with commas. For example:
 
 Port String      Corresponding Port List
 -----------      -----------------------

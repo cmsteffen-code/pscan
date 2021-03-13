@@ -14,8 +14,8 @@ from scapy.all import ICMP, IP, TCP, AsyncSniffer, Ether, conf, sendp, sr1
 
 PORT_RANGE_FORMAT = textwrap.dedent(
     """\
-    Ports can be specified as solo ports or hyphenated ranges, which
-    may be combined with commas. For example:
+    Ports can be specified as solo ports or hyphenated ranges, which may be
+    combined with commas. For example:
 
     Port String      Corresponding Port List
     -----------      -----------------------
