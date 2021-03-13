@@ -5,9 +5,11 @@
 import argparse
 import datetime
 import os
+from queue import SimpleQueue
 import socket
 import sys
 import textwrap
+import threading
 
 from scapy.all import conf, sr1, ICMP, IP
 
@@ -46,14 +48,30 @@ def ping(hostname):
     end = datetime.datetime.now()
     return int((end - start).total_seconds() * 1000) if online else None
 
+def syn_spray(ports):
+    """Send a spray of SYN packets to the specified ports."""
+    print("Syn spray!")
+
+def sniffer(ports, out_queue):
+    """Receive incoming packets and check for open ports."""
+    print("Sniffer!")
 
 def scan(hostname, port_range):
     """Scan the specified ports on the target host."""
     _ = (hostname, port_range)
-    return {
-        80: "open",
-        81: "closed",
-    }
+    good_ports = SimpleQueue()
+    threads = [
+        threading.Thread(target=sniffer, args=(port_range, good_ports)),
+        threading.Thread(target=syn_spray, args=(port_range,)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    open_ports = list()
+    while not good_ports.empty():
+        open_ports.append(good_ports.get())
+    return open_ports
 
 
 def main():
@@ -96,7 +114,7 @@ def main():
     ports = parse_ports(args.port_string)
     print(f"[*] Scanning {len(ports)} ports on {args.hostname}")
     start = datetime.datetime.now()
-    results = scan(args.hostname, ports)
+    open_ports = scan(args.hostname, ports)
     end = datetime.datetime.now()
     delta = end-start
     hours = delta.seconds // 3600
@@ -111,8 +129,8 @@ def main():
     )
     print(scan_time)
     print("[*] Results:")
-    for port, result in results.items():
-        print(f"{' ' * 4}{port}{' ' * (6-len(str(port)))}{result}")
+    for port in open_ports:
+        print(f"{' ' * 4}{port}{' ' * (6-len(str(port)))}open")
 
 
 if __name__ == "__main__":
