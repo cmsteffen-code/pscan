@@ -189,8 +189,6 @@ def main():
         default=TOP_1000,
     )
     args = parser.parse_args()
-    print(args)
-    sys.exit(0)
 
     if os.getuid() != 0:
         print("[!] This script requires root privileges.")
