@@ -11,7 +11,7 @@ import sys
 import textwrap
 import threading
 
-from scapy.all import conf, sr1, ICMP, IP
+from scapy.all import conf, sr1, ICMP, IP, sniff
 
 
 PORT_RANGE_FORMAT = textwrap.dedent(
@@ -52,16 +52,30 @@ def syn_spray(ports):
     """Send a spray of SYN packets to the specified ports."""
     print("Syn spray!")
 
-def sniffer(ports, out_queue):
+def sniffer(ports, host, out_queue):
     """Receive incoming packets and check for open ports."""
-    print("Sniffer!")
+    packets = sniff(
+        filter=(
+            f"tcp and src portrange {min(ports)}-{max(ports)} "
+            f"and inbound and host {host}"
+        ),
+        timeout=10,
+    )
+    live_ports = set()
+    for packet in packets:
+        if packet['TCP'].flags == "SA":
+            live_ports.add(packet.sport)
+    for port in sorted(live_ports):
+        out_queue.put(port)
 
 def scan(hostname, port_range):
     """Scan the specified ports on the target host."""
     _ = (hostname, port_range)
     good_ports = SimpleQueue()
     threads = [
-        threading.Thread(target=sniffer, args=(port_range, good_ports)),
+        threading.Thread(
+            target=sniffer, args=(port_range, hostname, good_ports)
+        ),
         threading.Thread(target=syn_spray, args=(port_range,)),
     ]
     for thread in threads:
