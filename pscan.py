@@ -57,7 +57,7 @@ def syn_spray(host, ports):
         send(IP(dst=host) / TCP(dport=port, flags="S"))
 
     conf.verb = 0
-    pool = ThreadPool(20)
+    pool = ThreadPool(50)
     pool.map(send_syn, ports)
     pool.close()
     pool.join()
@@ -99,9 +99,7 @@ def scan(hostname, ports):
         0.5,  # Timeout
     )
     sniffer.start()
-    spray = threading.Thread(target=syn_spray, args=(hostname, ports))
-    spray.start()
-    spray.join()
+    syn_spray(hostname, ports)
     print("[*] Port spray complete...")
     sniffer.stop()
     return sniffer.open_ports()
