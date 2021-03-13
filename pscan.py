@@ -187,6 +187,7 @@ def main():
         type=str,
         help="The port range to scan.",
         default=TOP_1000,
+        dest="port_string",
     )
     args = parser.parse_args()
 
